@@ -2,3 +2,5 @@ browse.VC.db
 /build/base/centos6/x64/build/scripts
 /build/fdo/centos6/x64/build/scripts
 /build/mapguide/centos6/x64/build/scripts
+/sources/fdo
+/sources/mapguide
