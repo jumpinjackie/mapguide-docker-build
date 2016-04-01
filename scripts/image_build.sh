@@ -1,10 +1,11 @@
 #!/bin/bash
 
-# Builds the docker image of the given component 
+# Builds the docker image of the given component
 #
-# Usage: image_build.sh [mapguide|fdo] [distro] [platform] [component]
+# This is used to construct the base/fdo/mapguide images
 #
-# eg. ./image_build.sh fdo centos6 x64 build
+# NOTE: You must build the base image first before building the fdo/mapguide ones as they inherit
+# from the base image
 PROJECT=
 DISTRO=
 CPU_PLAT=
@@ -114,6 +115,8 @@ DOCKERFILE_DIR="../build/$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT"
 
 echo "[build]: Building docker image (${IMAGE_NAME}:${TAG}) in $DOCKERFILE_DIR"
 pushd "$DOCKERFILE_DIR"
+    # We can't add parent relative path references to our required scripts from the dockerfile so
+    # we'll have to copy the actual scripts from here
     if [ -d scripts ]; then
         rm -rf scripts
     fi
