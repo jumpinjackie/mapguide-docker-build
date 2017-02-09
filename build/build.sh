@@ -1,21 +1,20 @@
 #!/bin/bash
 
-# Builds the docker image of the given component
+# Builds MapGuide/FDO
 #
-# This is used to construct the base/fdo/mapguide images
+# This is used to build MapGuide/FDO using the base images
 #
 # NOTE: You must build the base image first before building the fdo/mapguide ones as they inherit
 # from the base image
 PROJECT=
 DISTRO=
 CPU_PLAT=
-COMPONENT=
 TAG=
 THISDIR=`pwd`
 
 show_usage()
 {
-    echo "Usage: ./image_build.sh --project [mapguide|fdo|base] --distro [distro] --platform [x86|x64] --component [component]"
+    echo "Usage: ./build.sh --project [mapguide|fdo] --distro [distro] --platform [x86|x64] --version [tag]"
 }
 
 validate_required_argument()
@@ -44,11 +43,7 @@ case $key in
     CPU_PLAT="$2"
     shift # past argument
     ;;
-    -c|--component)
-    COMPONENT="$2"
-    shift # past argument
-    ;;
-    -t|--tag)
+    -v|--version)
     TAG="$2"
     shift # past argument
     ;;
@@ -65,12 +60,12 @@ done
 
 validate_required_argument "$PROJECT" "--project"
 validate_required_argument "$DISTRO" "--distro"
-validate_required_argument "$COMPONENT" "--component"
+validate_required_argument "$TAG" "--version"
 validate_required_argument "$CPU_PLAT" "--platform"
 
 # Validate --project
-if [ "$PROJECT" != "mapguide" ] && [ "$PROJECT" != "fdo" ] && [ "$PROJECT" != "base" ]; then
-    echo "[error]: Argument --project must be 'mapguide', 'fdo' or 'base'"
+if [ "$PROJECT" != "mapguide" ] && [ "$PROJECT" != "fdo" ]; then
+    echo "[error]: Argument --project must be 'mapguide' or 'fdo'"
     show_usage
     exit 1
 fi
@@ -91,18 +86,12 @@ if [ ! -d "./$PROJECT/$DISTRO/" ]; then
     exit 1
 fi
 
-# Validate --component
-if [ ! -d "./$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT" ]; then
-    echo "[error]: Argument --component is not valid. Valid values include"
-    for d in $(ls ./$PROJECT/$DISTRO/$CPU_PLAT); do
+# Validate --version
+if [ ! -d "../sources/$PROJECT/$TAG/" ]; then
+    echo "[error]: Argument --version is not valid. Valid values include"
+    for d in $(ls ../sources/$PROJECT); do
         echo "  $d"
     done
-    exit 1
-fi
-
-# Validate dockerfile exists
-if [ ! -f ./$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT/Dockerfile ]; then
-    echo "[error]: Could not find expected Dockerfile in ./$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT/"
     exit 1
 fi
 
@@ -110,10 +99,13 @@ if [ -z "$TAG" ]; then
     TAG="latest"
 fi
 
-echo "[build]: Using tag ($TAG)"
-IMAGE_NAME="osgeo/${COMPONENT}-${PROJECT}-${DISTRO}-${CPU_PLAT}"
-DOCKERFILE_DIR="./$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT"
-
-echo "[build]: Building docker image (${IMAGE_NAME}:${TAG}) in $DOCKERFILE_DIR"
-docker build -t ${IMAGE_NAME}:${TAG} -f ${DOCKERFILE_DIR}/Dockerfile .
-# TODO: Squashing this image would be nice
+BUILD_IMAGE_NAME="osgeo/build-base-${DISTRO}-${CPU_PLAT}"
+HOST_SRC_PATH=$(readlink -f "../sources/$PROJECT/$TAG")
+HOST_BUILD_PATH=$(readlink -f "../build_area/$PROJECT/$TAG")
+CNT_SRC_PATH="/tmp/build/sources/$PROJECT"
+CNT_BUILD_PATH="/tmp/build/area/$PROJECT"
+echo "Running $BUILD_IMAGE_NAME ($PROJECT, $DISTRO, $CPU_PLAT)"
+echo "  Host path ($HOST_SRC_PATH) will be mounted to ($CNT_SRC_PATH) inside the container"
+echo "  Host path ($CNT_BUILD_PATH) will be mounted to ($CNT_BUILD_PATH) inside the container"
+docker run -v $HOST_SRC_PATH:$CNT_SRC_PATH -v $HOST_BUILD_PATH:$CNT_BUILD_PATH -it $BUILD_IMAGE_NAME /bin/bash
+#docker run -v $HOST_SRC_PATH:$CNT_SRC_PATH -v $HOST_BUILD_PATH:$CNT_BUILD_PATH -it $BUILD_IMAGE_NAME /tmp/build/provision.sh --tag $TAG --project $PROJECT --arch $CPU_PLAT
