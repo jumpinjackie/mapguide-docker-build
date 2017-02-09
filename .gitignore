@@ -1,6 +1,10 @@
 browse.VC.db
+.vscode
 /build/base/centos6/x64/build/scripts
+/build/base/ubuntu14/x64/build/scripts
 /build/fdo/centos6/x64/build/scripts
+/build/fdo/ubuntu14/x64/build/scripts
 /build/mapguide/centos6/x64/build/scripts
+/build/mapguide/ubuntu/x64/build/scripts
 /sources/fdo
 /sources/mapguide
