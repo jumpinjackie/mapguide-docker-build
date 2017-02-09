@@ -82,26 +82,26 @@ if [ "$CPU_PLAT" != "x86" ] && [ "$CPU_PLAT" != "x64" ]; then
 fi
 
 # Validate --distro
-if [ ! -d "../build/$PROJECT/$DISTRO/" ]; then
+if [ ! -d "./$PROJECT/$DISTRO/" ]; then
     echo "[error]: Argument --component is not valid. Valid values include"
-    for d in $(ls ../build/$PROJECT); do
+    for d in $(ls ./$PROJECT); do
         echo "  $d"
     done
     exit 1
 fi
 
 # Validate --component
-if [ ! -d "../build/$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT" ]; then
+if [ ! -d "./$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT" ]; then
     echo "[error]: Argument --component is not valid. Valid values include"
-    for d in $(ls ../build/$PROJECT/$DISTRO/$CPU_PLAT); do
+    for d in $(ls ./$PROJECT/$DISTRO/$CPU_PLAT); do
         echo "  $d"
     done
     exit 1
 fi
 
 # Validate dockerfile exists
-if [ ! -f ../build/$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT/Dockerfile ]; then
-    echo "[error]: Could not find expected Dockerfile in ../build/$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT/"
+if [ ! -f ./$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT/Dockerfile ]; then
+    echo "[error]: Could not find expected Dockerfile in ./$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT/"
     exit 1
 fi
 
@@ -111,17 +111,8 @@ fi
 
 echo "[build]: Using tag ($TAG)"
 IMAGE_NAME="osgeo/${COMPONENT}-${PROJECT}-${DISTRO}-${CPU_PLAT}"
-DOCKERFILE_DIR="../build/$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT"
+DOCKERFILE_DIR="./$PROJECT/$DISTRO/$CPU_PLAT/$COMPONENT"
 
 echo "[build]: Building docker image (${IMAGE_NAME}:${TAG}) in $DOCKERFILE_DIR"
-pushd "$DOCKERFILE_DIR"
-    # We can't add parent relative path references to our required scripts from the dockerfile so
-    # we'll have to copy the actual scripts from here
-    if [ -d scripts ]; then
-        rm -rf scripts
-    fi
-    mkdir scripts
-    cp $THISDIR/${DISTRO}_${CPU_PLAT}_prerequisites.sh scripts
-    docker build -t ${IMAGE_NAME}:${TAG} .
-    # TODO: Squashing this image would be nice
-popd
+docker build -t ${IMAGE_NAME}:${TAG} -f ${DOCKERFILE_DIR}/Dockerfile .
+# TODO: Squashing this image would be nice

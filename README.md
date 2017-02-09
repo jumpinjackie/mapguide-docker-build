@@ -29,64 +29,64 @@ Build the base environment image that the ephemeral build containers will be bas
 
 Ubuntu 14 (64-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project base --distro ubuntu14 --platform x64 --component build
 
 Ubuntu 14 (32-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project base --distro ubuntu14 --platform x86 --component build
 
 CentOS 6.x (64-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project base --distro centos6 --platform x64 --component build
 
 CentOS 6.x (32-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project base --distro centos6 --platform x86 --component build
 
 ## 3. Run the ephemeral FDO build container
 
 Ubuntu 14 (64-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project fdo --distro ubuntu14 --platform x64 --component build
 
 Ubuntu 14 (32-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project fdo --distro ubuntu14 --platform x86 --component build
 
 CentOS 6.x (64-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project fdo --distro centos6 --platform x64 --component build
 
 CentOS 6.x (32-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project fdo --distro centos6 --platform x86 --component build
 
 ## 4. Run the ephemeral MapGuide build container
 
 Ubuntu 14 (64-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project mapguide --distro ubuntu14 --platform x64 --component build
 
 Ubuntu 14 (32-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project mapguide --distro ubuntu14 --platform x86 --component build
 
 CentOS 6.x (64-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project mapguide --distro centos6 --platform x64 --component build
 
 CentOS 6.x (32-bit) example:
 
-    cd ~/docker/scripts
+    cd ~/docker/build
     ./image_build.sh --project mapguide --distro centos6 --platform x86 --component build
