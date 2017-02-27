@@ -35,6 +35,8 @@ if [[ $FDO_DISTRO == *"ubuntu"* ]]; then
     UBUNTU=1
 fi
 
+FDO_VER_FULL="$FDO_VER_MAJOR.$FDO_VER_MINOR.$FDO_VER_REV"
+
 # Extra flags to pass to FDO build scripts
 FDO_BUILD_CONF=
 if [ $FDO_DEBUG -eq 1 ]; then
@@ -96,7 +98,7 @@ if [ "${TEST_FDO_FLAG}" = "1" ]; then
 fi
 
 FDO_LIB_SRC=$FDO_HOME/fdo_rdbms_thirdparty
-FDO_INST=/usr/local/fdo-${FDO_VER_MAJOR}.${FDO_VER_MINOR}.${FDO_VER_REV}
+FDO_INST=/usr/local/fdo-${FDO_VER_FULL}
 
 echo "********************************************************************************"
 echo Home directory is `pwd`
@@ -611,7 +613,7 @@ then
     FDO_BUILD_COMPONENT="Make tarball"
     # Create a binary tar ball for FDO
     cd ${FDO_INST}
-    tar -Jcf ${BUILDROOT}/fdosdk-${FDO_DISTRO}-${FDO_BUILD_CPU}-${FDO_VER_FULL}_${SVN_REVISION}.tar.xz *
+    tar -Jcf ${FDO_ARTIFACTS_DIR}/fdosdk-${FDO_DISTRO}-${FDO_BUILD_CPU}-${FDO_VER_FULL}_${SVN_REVISION}.tar.xz *
     check_fdo_build
 
     if [ ${UBUNTU} -eq 1 ];
