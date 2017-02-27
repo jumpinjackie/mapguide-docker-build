@@ -8,3 +8,7 @@ browse.VC.db
 /build/mapguide/ubuntu/x64/build/scripts
 /sources/fdo
 /sources/mapguide
+/build_area/fdo
+/build_area/mapguide
+/tools/container_build_fdo.sh
+/tools/fdo_rdbms_thirdparty.tar.gz

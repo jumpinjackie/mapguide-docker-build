@@ -1,33 +1,38 @@
 #!/bin/bash
 
-# build_fdo.sh
+# container_build_fdo.sh
 #
-# Builds FDO and creates a tarball from the binary output
-#
-# Modify setenvironment.sh to point to the correct Oracle, MySQL and PostgreSQL paths
-# before building
+# FDO build shell script (for use inside a docker container)
 
+PROVISION_START_TIME=`date +%s`
+
+echo "*****************************************************"
+echo " Arg check"
+echo "  1 - ${1}"
+echo "  2 - ${2}"
+echo "  3 - ${3}"
+echo "  4 - ${4}"
+echo "  5 - ${5}"
+echo "  6 - ${6}"
+echo "  7 - ${7:-centos6}"
+echo "*****************************************************"
+
+LOCALSVN=1
+PRESERVE_BUILD_ROOT=1
+CMAKE=0
 FDO_DEBUG=0
 
-FDO_BUILD_COMPONENT=
-
-# FDO version. Make sure this matches your FDO build source
-FDO_VER_MAJOR=${FDO_VER_MAJOR:-4}
-FDO_VER_MINOR=${FDO_VER_MINOR:-0}
-FDO_VER_REV=${FDO_VER_REV:-0}
-
-FDO_DISTRO=${FDO_DISTRO:-centos6}
-
-# FDO install directory
-FDO_VER_FULL=${FDO_VER_MAJOR}.${FDO_VER_MINOR}.${FDO_VER_REV}
-
-# Ubuntu distro switch
-UBUNTU=${UBUNTU:-0}
-
-if [ -z "${FDO_INST_PATH}" ]; then
-    FDO_INST=/usr/local/fdo-${FDO_VER_FULL}
-else
-    FDO_INST=${FDO_INST_PATH}
+# FDO version
+FDO_VER_MAJOR=${1}
+FDO_VER_MINOR=${2}
+FDO_VER_REV=${3}
+FDO_BRANCH=${4}
+FDO_ARCH=${5}
+TEST_FDO_FLAG=${6}
+FDO_DISTRO=${7:-centos6}
+UBUNTU=0
+if [[ $FDO_DISTRO == *"ubuntu"* ]]; then
+    UBUNTU=1
 fi
 
 # Extra flags to pass to FDO build scripts
@@ -38,30 +43,97 @@ else
     FDO_BUILD_CONF=release
 fi
 
+FDO_HOME=/tmp/build
+FDO_TOOLS_DIR=/tmp/build/tools
+FDO_BUILD_AREA_DIR=/tmp/build/area/fdo
+FDO_SOURCES_DIR=/tmp/build/sources/fdo
+FDO_ARTIFACTS_DIR=/tmp/build/artifacts
+FDO_FILELIST=${FDO_BUILD_AREA_DIR}/install/filelist
+
 FDO_CPU=
 FDO_BUILD_CPU=
 FDO_LIB_DIRNAME=
 FDO_PLATFORM=
-if [ "${ARCH}" = "amd64" ] || [ $(uname -m) = "x86_64" ]; then
+if [ "${FDO_ARCH}" = "amd64" ]; then
     FDO_CPU=x64
     FDO_BUILD_CPU=amd64
     FDO_LIB_DIRNAME=lib64
     FDO_PLATFORM=64
-else
+elif [ "${FDO_ARCH}" = "i386" ]; then
     FDO_CPU=x86
     FDO_BUILD_CPU=i386
     FDO_LIB_DIRNAME=lib
     FDO_PLATFORM=32
+else
+    echo "[error]: Unknown ARCH (${MG_ARCH})"
+    exit 1
 fi
 
-echo "******************************************************************"
-echo "FDO version:              ${FDO_VER_FULL}"
+FDO_BUILD_COMPONENT=
+check_build()
+{
+    error=$?
+    if [ $error -ne 0 ]; then
+        echo "[error]: ${BUILD_COMPONENT} - Error build failed ($error)"
+        exit $error
+    fi
+}
+if hash scons 2>/dev/null; then
+    echo [provision]: We have scons
+else
+    echo [provision]: We do not have scons. Installing it
+    sudo rpm -Uvh $FDO_TOOLS_DIR/scons-2.3.0-1.noarch.rpm
+    check_build
+fi
+
+HAVE_FDO=0
+HAVE_FDO_LIBS=0
+FDO_UNIT_TEST=0
+MAKE_FDO_SDK=0
+
+if [ "${TEST_FDO_FLAG}" = "1" ]; then
+    FDO_UNIT_TEST=1
+fi
+
+FDO_LIB_SRC=$FDO_HOME/fdo_rdbms_thirdparty
+FDO_INST=/usr/local/fdo-${FDO_VER_MAJOR}.${FDO_VER_MINOR}.${FDO_VER_REV}
+
+echo "********************************************************************************"
+echo Home directory is `pwd`
+echo "FDO Version:              ${FDO_VER_MAJOR}.${FDO_VER_MINOR}.${FDO_VER_REV}"
 echo "FDO Platform:             ${FDO_PLATFORM}"
 echo "CPU:                      ${FDO_CPU}"
 echo "Arch:                     ${FDO_BUILD_CPU}"
-echo "Lib Dir:                  ${FDO_LIB_DIRNAME}"
+echo "FDO branch:               ${FDO_BRANCH}"
+echo "Build target:             ${FDO_DISTRO} - ${FDO_ARCH}"
+echo "FDO Distro label:         ${FDO_DISTRO}"
+echo "Running FDO Tests:        ${FDO_UNIT_TEST}"
 echo "FDO will be installed to: ${FDO_INST}"
-echo "******************************************************************"
+echo "Checking directories"
+echo "********************************************************************************"
+
+if [ -d $FDO_SOURCES_DIR ];
+then
+    HAVE_FDO=1
+fi
+if [ -d $FDO_LIB_SRC ];
+then
+    HAVE_FDO_LIBS=1
+fi
+if [ -f /usr/include/asm/atomic.h ];
+then
+    echo [provision]: atomic.h exists. Doing nothing
+else
+    echo [provision]: Copy atomic.h
+    sudo mkdir -p /usr/include/asm
+    sudo cp $FDO_TOOLS_DIR/atomic.h /usr/include/asm
+fi
+
+if [ $HAVE_FDO_LIBS -eq 0 ];
+then
+    echo [provision]: Extracting FDO thirdparty libs
+    tar -zxf $FDO_TOOLS_DIR/fdo_rdbms_thirdparty.tar.gz -C $FDO_HOME
+fi
 
 check_fdo_build()
 {
@@ -126,25 +198,6 @@ update_provider_file_list()
     popd
 }
 
-BUILDROOT=`pwd`
-
-LOCALSVN=1
-PRESERVE_BUILD_ROOT=1
-CMAKE=0
-
-MY_HOME_DIR=$HOME
-if [ "$FDO_HOME" != "" ]; then
-    MY_HOME_DIR=$FDO_HOME
-fi
-
-FDO_SRC=${MY_HOME_DIR}/fdo/branches/${FDO_VER_MAJOR}.${FDO_VER_MINOR}
-if [ "${FDO_BRANCH}" = "trunk" ]; then
-    FDO_SRC=${MY_HOME_DIR}/fdo/trunk
-fi
-#FDO_SRC=http://svn.osgeo.org/fdo/trunk
-FDO_BUILD_AREA=${BUILDROOT}/fdo_build_area
-FDO_FILELIST=${FDO_BUILD_AREA}/install/filelist
-
 shim_thirdparty_lib_paths()
 {
     # Note: This is an Ubuntu-only code path
@@ -159,47 +212,47 @@ shim_thirdparty_lib_paths()
     #
     #   libmysqlclient-dev libpq-dev
     #
-    mkdir -p ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU
+    mkdir -p ${FDO_HOME}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU
     # PostgreSQL include path
-    if [ ! -d ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/include ];
+    if [ ! -d ${FDO_HOME}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/include ];
     then
-        ln -s /usr/include/postgresql ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/include
+        ln -s /usr/include/postgresql ${FDO_HOME}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/include
         echo "[info]: Symlinked PostgreSQL include path"
     else
         echo "[info]: PostgreSQL include path already symlinked"
     fi
     # PostgreSQL lib path
-    if [ ! -d ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/$FDO_LIB_DIRNAME ];
+    if [ ! -d ${FDO_HOME}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/$FDO_LIB_DIRNAME ];
     then
         if [ ${FDO_PLATFORM} -eq 32 ];
         then 
-            ln -s /usr/lib ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/$FDO_LIB_DIRNAME
+            ln -s /usr/lib ${FDO_HOME}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/$FDO_LIB_DIRNAME
             echo "[info]: Symlinked PostgreSQL lib path (x86)"
         else
-            ln -s /usr/lib ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/$FDO_LIB_DIRNAME
+            ln -s /usr/lib ${FDO_HOME}/fdo_rdbms_thirdparty_system/pgsql/$FDO_CPU/$FDO_LIB_DIRNAME
             echo "[info]: Symlinked PostgreSQL lib path (x64)"
         fi
     else
         echo "[info]: PostgreSQL lib path already symlinked"
     fi
-    mkdir -p ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU
+    mkdir -p ${FDO_HOME}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU
     # MySQL include path
-    if [ ! -d ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/include ];
+    if [ ! -d ${FDO_HOME}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/include ];
     then
-        ln -s /usr/include/mysql ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/include
+        ln -s /usr/include/mysql ${FDO_HOME}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/include
         echo "[info]: Symlinked MySQL include path"
     else
         echo "[info]: MySQL include path already symlinked"
     fi
     # MySQL lib path
-    if [ ! -d ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/$FDO_LIB_DIRNAME ];
+    if [ ! -d ${FDO_HOME}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/$FDO_LIB_DIRNAME ];
     then
         if [ ${FDO_PLATFORM} -eq 32 ]; 
         then
-            ln -s /usr/lib/i386-linux-gnu ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/$FDO_LIB_DIRNAME
+            ln -s /usr/lib/i386-linux-gnu ${FDO_HOME}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/$FDO_LIB_DIRNAME
             echo "[info]: Symlinked MySQL lib path (x86)"
         else
-            ln -s /usr/lib/x86_64-linux-gnu ${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/$FDO_LIB_DIRNAME
+            ln -s /usr/lib/x86_64-linux-gnu ${FDO_HOME}/fdo_rdbms_thirdparty_system/mysql/$FDO_CPU/$FDO_LIB_DIRNAME
             echo "[info]: Symlinked MySQL lib path (x64)"
         fi
     else
@@ -209,7 +262,7 @@ shim_thirdparty_lib_paths()
 
 modify_sdk_paths()
 {
-    rm -f $FDO_BUILD_AREA/setenvironment.sh
+    rm -f $FDO_BUILD_AREA_DIR/setenvironment.sh
 
     if [ ${UBUNTU} -eq 1 ];
     then
@@ -225,46 +278,46 @@ modify_sdk_paths()
         
         # Nuke the existing copies of openssl and libcurl and replace them with directories
         # that symlink to system-installed headers/libs
-        rm -rf $FDO_BUILD_AREA/Thirdparty/openssl
-        rm -rf $FDO_BUILD_AREA/Thirdparty/libcurl
+        rm -rf $FDO_BUILD_AREA_DIR/Thirdparty/openssl
+        rm -rf $FDO_BUILD_AREA_DIR/Thirdparty/libcurl
         
         # symlink libcurl to system installed copy
-        mkdir -p $FDO_BUILD_AREA/Thirdparty/libcurl/include
-        if [ ! -e $FDO_BUILD_AREA/Thirdparty/libcurl/include/curl ];
+        mkdir -p $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/include
+        if [ ! -e $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/include/curl ];
         then
-            ln -s /usr/include/curl $FDO_BUILD_AREA/Thirdparty/libcurl/include/curl
+            ln -s /usr/include/curl $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/include/curl
         fi
         # Stub build.sh for libcurl
-        echo "#!/bin/bash" > $FDO_BUILD_AREA/Thirdparty/libcurl/build.sh
-        echo "exit 0" >> $FDO_BUILD_AREA/Thirdparty/libcurl/build.sh
-        mkdir -p $FDO_BUILD_AREA/Thirdparty/libcurl/lib
-        if [ ! -e $FDO_BUILD_AREA/Thirdparty/libcurl/lib/linux ];
+        echo "#!/bin/bash" > $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/build.sh
+        echo "exit 0" >> $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/build.sh
+        mkdir -p $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/lib
+        if [ ! -e $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/lib/linux ];
         then
             if [ ${FDO_PLATFORM} -eq 32 ]; 
             then
-                ln -s /usr/lib/i386-linux-gnu $FDO_BUILD_AREA/Thirdparty/libcurl/lib/linux
+                ln -s /usr/lib/i386-linux-gnu $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/lib/linux
             else
-                ln -s /usr/lib/x86_64-linux-gnu $FDO_BUILD_AREA/Thirdparty/libcurl/lib/linux
+                ln -s /usr/lib/x86_64-linux-gnu $FDO_BUILD_AREA_DIR/Thirdparty/libcurl/lib/linux
             fi
         fi
 
         # symlink openssl to system installed copy
-        mkdir -p $FDO_BUILD_AREA/Thirdparty/openssl/include
-        if [ ! -e $FDO_BUILD_AREA/Thirdparty/openssl/include/openssl ];
+        mkdir -p $FDO_BUILD_AREA_DIR/Thirdparty/openssl/include
+        if [ ! -e $FDO_BUILD_AREA_DIR/Thirdparty/openssl/include/openssl ];
         then
-            ln -s /usr/include/openssl $FDO_BUILD_AREA/Thirdparty/openssl/include/openssl
+            ln -s /usr/include/openssl $FDO_BUILD_AREA_DIR/Thirdparty/openssl/include/openssl
         fi
         # Stub openssl for libcurl
-        echo "#!/bin/bash" > $FDO_BUILD_AREA/Thirdparty/openssl/build.sh
-        echo "exit 0" >> $FDO_BUILD_AREA/Thirdparty/openssl/build.sh
-        mkdir -p $FDO_BUILD_AREA/Thirdparty/openssl/lib
-        if [ ! -e $FDO_BUILD_AREA/Thirdparty/openssl/lib/linux ];
+        echo "#!/bin/bash" > $FDO_BUILD_AREA_DIR/Thirdparty/openssl/build.sh
+        echo "exit 0" >> $FDO_BUILD_AREA_DIR/Thirdparty/openssl/build.sh
+        mkdir -p $FDO_BUILD_AREA_DIR/Thirdparty/openssl/lib
+        if [ ! -e $FDO_BUILD_AREA_DIR/Thirdparty/openssl/lib/linux ];
         then
             if [ ${FDO_PLATFORM} -eq 32 ]; 
             then
-                ln -s /usr/lib/i386-linux-gnu $FDO_BUILD_AREA/Thirdparty/openssl/lib/linux
+                ln -s /usr/lib/i386-linux-gnu $FDO_BUILD_AREA_DIR/Thirdparty/openssl/lib/linux
             else
-                ln -s /usr/lib/x86_64-linux-gnu $FDO_BUILD_AREA/Thirdparty/openssl/lib/linux
+                ln -s /usr/lib/x86_64-linux-gnu $FDO_BUILD_AREA_DIR/Thirdparty/openssl/lib/linux
             fi
         fi
         echo "[info]: Replace internal openssl/libcurl with symlinks to Ubuntu-installed copies"
@@ -275,7 +328,7 @@ modify_sdk_paths()
     echo "[info]: Setting environment variables for FDO"
 
     # Fully-qualfied location of the FDO files
-    export FDO=$FDO_BUILD_AREA/Fdo
+    export FDO=$FDO_BUILD_AREA_DIR/Fdo
     if test ! -e "$FDO"; then
        echo ""
        echo "Invalid FDO path provided. "
@@ -286,7 +339,7 @@ modify_sdk_paths()
     fi
 
     # Fully-qualfied location of the FDO Utility files
-    export FDOUTILITIES=$FDO_BUILD_AREA/Utilities
+    export FDOUTILITIES=$FDO_BUILD_AREA_DIR/Utilities
     if test ! -e "$FDOUTILITIES"; then
        echo ""
        echo "Invalid FDO Utilities path provided. "
@@ -299,7 +352,7 @@ modify_sdk_paths()
     #
     # Note: This value is completely disregarded and rewritten by FDO's configure script
     # but we still set it here as it forms the basis of other env vars below
-    export FDOTHIRDPARTY=$FDO_BUILD_AREA/Thirdparty
+    export FDOTHIRDPARTY=$FDO_BUILD_AREA_DIR/Thirdparty
     if test ! -e "$FDOTHIRDPARTY"; then
        echo ""
        echo "Invalid FDO Thirdparty path provided. "
@@ -376,26 +429,26 @@ modify_sdk_paths()
     export XERCESCROOT=$FDOTHIRDPARTY/apache/xerces
     export XALANCROOT=$FDOTHIRDPARTY/apache/xalan
     export NLSDIR=$XALANCROOT/src/xalanc/NLS
-    export FDOORACLE=${MY_HOME_DIR}/fdo_rdbms_thirdparty/oracle/${FDO_CPU}/instantclient_11_2/sdk
+    export FDOORACLE=${FDO_HOME}/fdo_rdbms_thirdparty/oracle/${FDO_CPU}/instantclient_11_2/sdk
 
     # Depending on distro, MySQL and PostgreSQL take different paths here
     if [ ${UBUNTU} -eq 1 ];
     then
-        export FDOMYSQL=${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/mysql/${FDO_CPU}
-        export FDOPOSTGRESQL=${MY_HOME_DIR}/fdo_rdbms_thirdparty_system/pgsql/${FDO_CPU}
+        export FDOMYSQL=${FDO_HOME}/fdo_rdbms_thirdparty_system/mysql/${FDO_CPU}
+        export FDOPOSTGRESQL=${FDO_HOME}/fdo_rdbms_thirdparty_system/pgsql/${FDO_CPU}
         
         # Also need to patch some FDO thirdparty build scripts to accept our non-default compiler
         #echo "[info]: Patching mkcatdefs build script"
-        #sed -i 's/gcc -DLINUX -g/'"$CC"' -DLINUX -g/g' ${FDO_BUILD_AREA}/Thirdparty/linux/mkcatdefs/src/build
+        #sed -i 's/gcc -DLINUX -g/'"$CC"' -DLINUX -g/g' ${FDO_BUILD_AREA_DIR}/Thirdparty/linux/mkcatdefs/src/build
         #echo "[info]: Patching xalan/xerces build script"
-        #sed -i 's/.\/runConfigure -p linux -P/.\/runConfigure -p linux -c '"$CC"' -x '"$CXX"' -P/g' ${FDO_BUILD_AREA}/Thirdparty/apache/build2.sha
+        #sed -i 's/.\/runConfigure -p linux -P/.\/runConfigure -p linux -c '"$CC"' -x '"$CXX"' -P/g' ${FDO_BUILD_AREA_DIR}/Thirdparty/apache/build2.sha
         #echo "[info]: Patching boost build script"
-        #sed -i 's/# using gcc : 3.2 : g++-3.2 ;/using gcc : '"$GCCVER"' : '"$CXX"' ;/g' ${FDO_BUILD_AREA}/Thirdparty/boost/tools/build/v2/user-config.jam
-        #sed -i 's/.\/b2 toolset=gcc/.\/b2 toolset='"$CC"'/g' ${FDO_BUILD_AREA}/Thirdparty/boost/build.sh
+        #sed -i 's/# using gcc : 3.2 : g++-3.2 ;/using gcc : '"$GCCVER"' : '"$CXX"' ;/g' ${FDO_BUILD_AREA_DIR}/Thirdparty/boost/tools/build/v2/user-config.jam
+        #sed -i 's/.\/b2 toolset=gcc/.\/b2 toolset='"$CC"'/g' ${FDO_BUILD_AREA_DIR}/Thirdparty/boost/build.sh
     else
         # Note: Change your paths here if they're different
-        export FDOMYSQL=${MY_HOME_DIR}/fdo_rdbms_thirdparty/mysql/${FDO_CPU}
-        export FDOPOSTGRESQL=${MY_HOME_DIR}/fdo_rdbms_thirdparty/pgsql
+        export FDOMYSQL=${FDO_HOME}/fdo_rdbms_thirdparty/mysql/${FDO_CPU}
+        export FDOPOSTGRESQL=${FDO_HOME}/fdo_rdbms_thirdparty/pgsql
     fi
 
     # Check MySQL path
@@ -437,26 +490,7 @@ modify_sdk_paths()
     echo ""
 }
 
-# Must have root
-if [[ $EUID -ne 0 ]]; then
-    echo "[error]: You must run this script with superuser privileges"
-    exit 1
-fi
-
-echo "***********************************************************"
-echo " FDO Source:                     ${FDO_SRC}"
-echo " FDO Build Area:                 ${FDO_BUILD_AREA}"
-echo " FDO Install dir:                ${FDO_INST}"
-echo " FDO CPU Target:                 ${FDO_BUILD_CPU}"
-echo " FDO build config:               ${FDO_BUILD_CONF}"
-echo " CMake build:                    ${CMAKE}"
-echo " Is Ubuntu?:                     ${UBUNTU}"
-echo " Debug build:                    ${FDO_DEBUG}"
-echo " Export from local SVN checkout: ${LOCALSVN}"
-echo " Re-use previous build area:     ${PRESERVE_BUILD_ROOT}"
-echo "***********************************************************"
-start_time=`date +%s`
-REVISION=`svn info ${FDO_SRC} | perl revnum.pl`
+SVN_REVISION=`svn info ${FDO_SOURCES_DIR} | perl revnum.pl`
 
 if [ -d ${FDO_INST} ];
 then
@@ -472,42 +506,41 @@ then
     exit 1
 else
     echo "[info]: Using automake build"
-    if [ -d ${FDO_BUILD_AREA} ];
+    if [ -d ${FDO_BUILD_AREA_DIR} ];
     then
         if [ ${PRESERVE_BUILD_ROOT} -eq 1 ];
         then
-            echo "[info]: FDO build area ${FDO_BUILD_AREA} exists. Going straight to build"
+            echo "[info]: FDO build area ${FDO_BUILD_AREA_DIR} exists. Going straight to build"
             modify_sdk_paths
         else
-            echo "[info]: Removing old FDO build area at ${FDO_BUILD_AREA}"
-            rm -rf ${FDO_BUILD_AREA}
+            echo "[info]: Removing old FDO build area at ${FDO_BUILD_AREA_DIR}"
+            rm -rf ${FDO_BUILD_AREA_DIR}
             if [ ${LOCALSVN} -eq 1 ] 
             then
-                svn export -q ${FDO_SRC} ${FDO_BUILD_AREA}
+                svn export -q ${FDO_SOURCES_DIR} ${FDO_BUILD_AREA_DIR}
                 modify_sdk_paths
             else
-                echo "[info]: Performing fresh SVN export of ${FDO_SRC} (r${REVISION}) to ${FDO_BUILD_AREA}"
-                svn export -q -r ${REVISION} ${FDO_SRC} ${FDO_BUILD_AREA}
+                echo "[info]: Performing fresh SVN export of ${FDO_SOURCES_DIR} (r${SVN_REVISION}) to ${FDO_BUILD_AREA_DIR}"
+                svn export -q -r ${SVN_REVISION} ${FDO_SOURCES_DIR} ${FDO_BUILD_AREA_DIR}
                 modify_sdk_paths
             fi
         fi
     else
-        echo "[info]: FDO build area ${FDO_BUILD_AREA} does not exist. Doing svn export"
-        echo "[info]: Exporting svn revision ${REVISION}"
+        echo "[info]: FDO build area ${FDO_BUILD_AREA_DIR} does not exist. Doing svn export"
+        echo "[info]: Exporting svn revision ${SVN_REVISION}"
         if [ ${LOCALSVN} -eq 1 ] 
         then
-            svn export -q ${FDO_SRC} ${FDO_BUILD_AREA}
+            svn export -q ${FDO_SOURCES_DIR} ${FDO_BUILD_AREA_DIR}
             modify_sdk_paths
         else
-            echo "[info]: Performing fresh SVN export of ${FDO_SRC} (r${REVISION}) to ${FDO_BUILD_AREA}"
-            svn export -q -r ${REVISION} ${FDO_SRC} ${FDO_BUILD_AREA}
+            echo "[info]: Performing fresh SVN export of ${FDO_SOURCES_DIR} (r${SVN_REVISION}) to ${FDO_BUILD_AREA_DIR}"
+            svn export -q -r ${SVN_REVISION} ${FDO_SOURCES_DIR} ${FDO_BUILD_AREA_DIR}
             modify_sdk_paths
         fi
     fi
 fi
-
-echo "[info]: Building FDO (${FDO_VER_MAJOR}.${FDO_VER_MINOR}.${FDO_VER_REV}) rev (${REVISION})"
-cd ${FDO_BUILD_AREA}
+echo "[info]: Building FDO (${FDO_VER_MAJOR}.${FDO_VER_MINOR}.${FDO_VER_REV}) rev (${SVN_REVISION})"
+cd ${FDO_BUILD_AREA_DIR}
 
 FDO_BUILD_COMPONENT="FDO Thirdparty"
 ./build_thirdparty.sh -b ${FDO_PLATFORM} --c ${FDO_BUILD_CONF} --p ${FDO_INST}
@@ -558,8 +591,6 @@ check_fdo_lib libKingOracleProvider
 check_fdo_lib libKingOracleOverrides
 check_fdo_lib libSQLiteProvider
 
-end_time=`date +%s`
-
 if [ $FDO_DEBUG -eq 0 ];
 then
     FDO_BUILD_COMPONENT="Remove .la files from ${FDO_INST}"
@@ -580,18 +611,19 @@ then
     FDO_BUILD_COMPONENT="Make tarball"
     # Create a binary tar ball for FDO
     cd ${FDO_INST}
-    tar -Jcf ${BUILDROOT}/fdosdk-${FDO_DISTRO}-${FDO_BUILD_CPU}-${FDO_VER_FULL}_${REVISION}.tar.xz *
+    tar -Jcf ${BUILDROOT}/fdosdk-${FDO_DISTRO}-${FDO_BUILD_CPU}-${FDO_VER_FULL}_${SVN_REVISION}.tar.xz *
     check_fdo_build
 
     if [ ${UBUNTU} -eq 1 ];
     then
-        cd ${FDO_BUILD_AREA}/install
+        cd ${FDO_BUILD_AREA_DIR}/install
         dos2unix *
-        ./dpkgall.sh ${FDO_BUILD_CPU} ${REVISION}
+        ./dpkgall.sh ${FDO_BUILD_CPU} ${SVN_REVISION}
     fi
 else
     echo "[info]: Not packaging FDO in debug mode"
 fi
 
-echo "[info]: FDO build complete!"
-echo FDO main build execution time: `expr $end_time - $start_time` s
+PROVISION_END_TIME=`date +%s`
+echo [provision]: Build complete
+echo [provision]: Overall build duration: `expr $PROVISION_END_TIME - $PROVISION_START_TIME` s
