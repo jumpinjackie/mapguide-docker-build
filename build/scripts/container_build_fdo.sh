@@ -56,18 +56,18 @@ FDO_CPU=
 FDO_BUILD_CPU=
 FDO_LIB_DIRNAME=
 FDO_PLATFORM=
-if [ "${FDO_ARCH}" = "amd64" ]; then
+if [ "${FDO_ARCH}" = "x64" ]; then
     FDO_CPU=x64
     FDO_BUILD_CPU=amd64
     FDO_LIB_DIRNAME=lib64
     FDO_PLATFORM=64
-elif [ "${FDO_ARCH}" = "i386" ]; then
+elif [ "${FDO_ARCH}" = "x86" ]; then
     FDO_CPU=x86
     FDO_BUILD_CPU=i386
     FDO_LIB_DIRNAME=lib
     FDO_PLATFORM=32
 else
-    echo "[error]: Unknown ARCH (${MG_ARCH})"
+    echo "[error]: Unknown ARCH (${FDO_ARCH}). Expected: x86|x64"
     exit 1
 fi
 

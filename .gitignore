@@ -12,3 +12,5 @@ browse.VC.db
 /build_area/mapguide
 /tools/container_build_fdo.sh
 /tools/fdo_rdbms_thirdparty.tar.gz
+/artifacts/fdo
+/artifacts/mapguide
