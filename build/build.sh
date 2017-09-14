@@ -75,7 +75,7 @@ done
 
 validate_required_argument "$PROJECT" "--project"
 validate_required_argument "$DISTRO" "--distro"
-validate_required_argument "$TAG" "--version"
+validate_required_argument "$TAG" "--tag"
 validate_required_argument "$CPU_PLAT" "--platform"
 validate_required_argument "$VER_MAJOR" "--major"
 validate_required_argument "$VER_MINOR" "--minor"
@@ -106,7 +106,7 @@ fi
 
 # Validate --version
 if [ ! -d "../sources/$PROJECT/$TAG/" ]; then
-    echo "[error]: Argument --version is not valid. Valid values include"
+    echo "[error]: Argument --tag is not valid. Valid values include"
     for d in $(ls ../sources/$PROJECT); do
         echo "  $d"
     done
@@ -124,17 +124,16 @@ mkdir -p ../artifacts/$PROJECT/$TAG
 HOST_OUTPUT_PATH=$(readlink -f "../artifacts/$PROJECT/$TAG")
 HOST_TOOLS_PATH=$(readlink -f "../tools")
 HOST_SRC_PATH=$(readlink -f "../sources/$PROJECT/$TAG")
-HOST_BUILD_PATH=$(readlink -f "../build_area/$PROJECT/$TAG/${DISTRO}_${CPU_PLAT}")
+#HOST_BUILD_PATH=$(readlink -f "../build_area/$PROJECT/$TAG/${DISTRO}_${CPU_PLAT}")
 CNT_OUTPUT_PATH="/tmp/build/artifacts"
 CNT_TOOLS_PATH="/tmp/build/tools"
 CNT_SRC_PATH="/tmp/build/sources/$PROJECT"
-CNT_BUILD_PATH="/tmp/build/area"
+#CNT_BUILD_PATH="/tmp/build/area"
 
 echo "Running $BUILD_IMAGE_NAME ($PROJECT, $DISTRO, $CPU_PLAT) v$VER_MAJOR.$VER_MINOR.$VER_PATCH"
 echo "  Host path ($HOST_OUTPUT_PATH) will be mounted to ($CNT_OUTPUT_PATH) inside the container"
 echo "  Host path ($HOST_TOOLS_PATH) will be mounted to ($CNT_TOOLS_PATH) inside the container"
 echo "  Host path ($HOST_SRC_PATH) will be mounted to ($CNT_SRC_PATH) inside the container"
-echo "  Host path ($HOST_BUILD_PATH) will be mounted to ($CNT_BUILD_PATH) inside the container"
-#docker run -v $HOST_OUTPUT_PATH:$CNT_OUTPUT_PATH -v $HOST_TOOLS_PATH:$CNT_TOOLS_PATH -v $HOST_SRC_PATH:$CNT_SRC_PATH -v $HOST_BUILD_PATH:$CNT_BUILD_PATH -it $BUILD_IMAGE_NAME /bin/bash
-docker run -v $HOST_OUTPUT_PATH:$CNT_OUTPUT_PATH -v $HOST_TOOLS_PATH:$CNT_TOOLS_PATH -v $HOST_SRC_PATH:$CNT_SRC_PATH -v $HOST_BUILD_PATH:$CNT_BUILD_PATH -it $BUILD_IMAGE_NAME /tmp/build/container_build_fdo.sh $VER_MAJOR $VER_MINOR $VER_PATCH $TAG $CPU_PLAT 0 $DISTRO
-#docker run -v $HOST_SRC_PATH:$CNT_SRC_PATH -v $HOST_BUILD_PATH:$CNT_BUILD_PATH -it $BUILD_IMAGE_NAME /tmp/build/provision.sh --tag $TAG --project $PROJECT --arch $CPU_PLAT
+#echo "  Host path ($HOST_BUILD_PATH) will be mounted to ($CNT_BUILD_PATH) inside the container"
+#docker run -v $HOST_OUTPUT_PATH:$CNT_OUTPUT_PATH -v $HOST_TOOLS_PATH:$CNT_TOOLS_PATH -v $HOST_SRC_PATH:$CNT_SRC_PATH -it $BUILD_IMAGE_NAME /bin/bash
+docker run --name build-${PROJECT}-${DISTRO}-${CPU_PLAT} -v $HOST_OUTPUT_PATH:$CNT_OUTPUT_PATH -v $HOST_TOOLS_PATH:$CNT_TOOLS_PATH -v $HOST_SRC_PATH:$CNT_SRC_PATH -it $BUILD_IMAGE_NAME /tmp/build/container_build_fdo.sh $VER_MAJOR $VER_MINOR $VER_PATCH $TAG $CPU_PLAT 0 $DISTRO

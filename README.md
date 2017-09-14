@@ -52,22 +52,22 @@ CentOS 6.x (32-bit) example:
 Ubuntu 14 (64-bit) example:
 
     cd ~/docker/build
-    ./image_build.sh --project fdo --distro ubuntu14 --platform x64 --component build
+    ./build.sh --project fdo --distro ubuntu14 --platform x64 --component build --major $MAJOR --minor $MINOR --patch $PATCH
 
 Ubuntu 14 (32-bit) example:
 
     cd ~/docker/build
-    ./image_build.sh --project fdo --distro ubuntu14 --platform x86 --component build
+    ./build.sh --project fdo --distro ubuntu14 --platform x86 --component build --major $MAJOR --minor $MINOR --patch $PATCH
 
 CentOS 6.x (64-bit) example:
 
     cd ~/docker/build
-    ./image_build.sh --project fdo --distro centos6 --platform x64 --component build
+    ./build.sh --project fdo --distro centos6 --platform x64 --component build --major $MAJOR --minor $MINOR --patch $PATCH
 
 CentOS 6.x (32-bit) example:
 
     cd ~/docker/build
-    ./image_build.sh --project fdo --distro centos6 --platform x86 --component build
+    ./build.sh --project fdo --distro centos6 --platform x86 --component build --major $MAJOR --minor $MINOR --patch $PATCH
 
 ## 4. Run the ephemeral MapGuide build container
 

@@ -47,7 +47,8 @@ fi
 
 FDO_HOME=/tmp/build
 FDO_TOOLS_DIR=/tmp/build/tools
-FDO_BUILD_AREA_DIR=/tmp/build/area/fdo
+#FDO_BUILD_AREA_DIR=/tmp/build/area/fdo
+FDO_BUILD_AREA_DIR=/tmp/build/area_fdo
 FDO_SOURCES_DIR=/tmp/build/sources/fdo
 FDO_ARTIFACTS_DIR=/tmp/build/artifacts
 FDO_FILELIST=${FDO_BUILD_AREA_DIR}/install/filelist
@@ -492,7 +493,7 @@ modify_sdk_paths()
     echo ""
 }
 
-SVN_REVISION=`svn info ${FDO_SOURCES_DIR} | perl revnum.pl`
+SVN_REVISION=`svn info ${FDO_SOURCES_DIR} | perl ${FDO_TOOLS_DIR}/revnum.pl`
 
 if [ -d ${FDO_INST} ];
 then
