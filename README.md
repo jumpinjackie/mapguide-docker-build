@@ -18,8 +18,8 @@ Clone this repository
 
 Check out the MapGuide/FDO source code
 
-    mkdir -p ~/docker/source/fdo/latest
-    mkdir -p ~/docker/source/mapguide/latest
+    mkdir -p ~/docker/sources/fdo/latest
+    mkdir -p ~/docker/sources/mapguide/latest
     svn co http://svn.osgeo.org/fdo/trunk ~/docker/sources/fdo/latest
     svn co http://svn.osgeo.org/mapguide/trunk/MgDev ~/docker/sources/mapguide/latest
 
